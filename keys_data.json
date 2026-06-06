@@ -1,0 +1,15 @@
+{
+    "keys": {
+        "PREM-6OAC7Y3I": {
+            "duration_seconds": 1800,
+            "duration_label": "30 Menit",
+            "status": "used",
+            "used_by": "781519857"
+        }
+    },
+    "users": {
+        "781519857": {
+            "expired_at": 1780769860.721846
+        }
+    }
+}
