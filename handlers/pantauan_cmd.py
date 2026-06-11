@@ -5,6 +5,7 @@ from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes, 
 # 1. Tentukan 6 Tahapan Pertanyaan untuk Pantauan
 (KENDARAAN_P, POSISI_P, CUACA_P, LALIN_P, ODDO_P, GIAT_P) = range(6)
 
+
 async def mulai_pantauan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👀 Siap! Mari buat Laporan Pantauan.\n\n"
@@ -12,44 +13,64 @@ async def mulai_pantauan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return KENDARAAN_P
 
+
 async def simpan_kendaraan_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['kendaraan_p'] = update.message.text
     await update.message.reply_text("2️⃣ 10.2 / Posisi saat ini? (Contoh: KM 714 A):")
     return POSISI_P
+
 
 async def simpan_posisi_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['posisi_p'] = update.message.text
     await update.message.reply_text("3️⃣ 8.1.5 / Cuaca? (Contoh: Cerah / Mendung / Gerimis):")
     return CUACA_P
 
+
 async def simpan_cuaca_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['cuaca_p'] = update.message.text
     await update.message.reply_text("4️⃣ 8.1.9 / Situasi Lalin? (Contoh: Ramai Lancar / Sepi):")
     return LALIN_P
+
 
 async def simpan_lalin_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['lalin_p'] = update.message.text
     await update.message.reply_text("5️⃣ Posisi Oddo saat ini? (Contoh: 71350):")
     return ODDO_P
 
+
 async def simpan_oddo_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['oddo_p'] = update.message.text
     await update.message.reply_text("6️⃣ Giat saat ini? (Contoh: Standby / Patroli / Turlalin):")
     return GIAT_P
 
+
 async def simpan_giat_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['giat_p'] = update.message.text
-    
+
     # --- LOGIKA OTOMATIS UCAPAN WAKTU ---
-    # Menentukan Pagi/Siang/Sore/Malam berdasarkan jam server saat laporan dibuat
-    sekarang = datetime.datetime.now()
+    # Pakai WIB / Asia Jakarta tanpa install library tambahan
+    wib = datetime.timezone(datetime.timedelta(hours=7))
+    sekarang = datetime.datetime.now(wib)
+
     jam = sekarang.hour
-    
-    if 4 <= jam < 11:
+    menit = sekarang.minute
+
+    # Ubah jam dan menit jadi total menit
+    # Contoh:
+    # 11:00 = 660 menit
+    # 17:30 = 1050 menit
+    total_menit = jam * 60 + menit
+
+    # Rules:
+    # 00.00 - 10.59 = Selamat Pagi
+    # 11.00 - 14.59 = Selamat Siang
+    # 15.00 - 17.29 = Selamat Sore
+    # 17.30 - 23.59 = Selamat Malam
+    if 0 <= total_menit < 11 * 60:
         ucapan_waktu = "Selamat Pagi"
-    elif 11 <= jam < 15:
+    elif 11 * 60 <= total_menit < 15 * 60:
         ucapan_waktu = "Selamat Siang"
-    elif 15 <= jam < 18:
+    elif 15 * 60 <= total_menit < (17 * 60 + 30):
         ucapan_waktu = "Selamat Sore"
     else:
         ucapan_waktu = "Selamat Malam"
@@ -67,13 +88,15 @@ async def simpan_giat_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Demikian yang dapat dilaporkan, Semoga Aman TKA.\n"
         "Terima Kasih 🙏"
     )
-    
+
     await update.message.reply_text(pesan_hasil)
     return ConversationHandler.END
+
 
 async def cancel_pantauan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Pembuatan Laporan Pantauan dibatalkan. ❌")
     return ConversationHandler.END
+
 
 # Daftarkan Conversation Handler untuk Pantauan
 pantauan_conv_handler = ConversationHandler(
