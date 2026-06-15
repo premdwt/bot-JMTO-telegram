@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src="https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?q=80&w=1200&auto=format&fit=crop" alt="Ruas Tol Surabaya - Mojokerto" width="100%">
+  <img src="https://cdn.discordapp.com/attachments/1507982479913390171/1512521389066686546/generated-image.png?ex=6a2464d0&is=6a231350&hm=90a9af27f62edd2078f8fd1cc60cfb29c6feba90a00af7aa29aead2730d2a91f&" alt="Smart Assistant Bot JMTO - Ruas JSM" width="100%">
 
   <h1>🚔 Smart Assistant Bot JMTO — Ruas JSM 🛣️</h1>
 
