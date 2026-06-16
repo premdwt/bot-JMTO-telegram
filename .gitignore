@@ -1,5 +1,6 @@
 # Sembunyikan Token Bot
 config.py
+shift_sessions.json
 
 # Sembunyikan file cache Python biar rapi
 __pycache__/

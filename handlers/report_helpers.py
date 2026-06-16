@@ -1,11 +1,21 @@
 import datetime
+from datetime import timedelta, timezone
 from typing import Optional
-from zoneinfo import ZoneInfo
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes, ConversationHandler
 
-WIB = ZoneInfo("Asia/Jakarta")
+
+def _buat_zona_wib():
+    try:
+        from zoneinfo import ZoneInfo
+        return ZoneInfo("Asia/Jakarta")
+    except Exception:
+        # Windows tanpa paket tzdata: fallback UTC+7 (WIB)
+        return timezone(timedelta(hours=7))
+
+
+WIB = _buat_zona_wib()
 
 HARI_ID = {
     "Monday": "Senin", "Tuesday": "Selasa", "Wednesday": "Rabu",

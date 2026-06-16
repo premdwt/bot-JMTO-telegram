@@ -1,11 +1,16 @@
 import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, TypeHandler
+from telegram.request import HTTPXRequest
 from config import BOT_TOKEN
+
+TIMEOUT_JARINGAN = 60.0
 
 # --- IMPORT DARI FOLDER HANDLERS (OPERASIONAL JSM) ---
 from handlers.base_cmds import start_command
 from handlers.lapor_cmd import lapor_conv_handler
+from handlers.smartlapor_cmd import smartlapor_conv_handler
+from handlers.smartlapor_akhir_cmd import smartlapor_akhir_conv_handler
 from handlers.laka_cmd import laka_conv_handler
 from handlers.pantauan_cmd import pantauan_conv_handler
 from handlers.trace_cmd import trace_conv_handler
@@ -75,10 +80,35 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logger.error("TERJADI ERROR DI BOT", exc_info=context.error)
 
 
+async def on_bot_ready(application: Application):
+    me = await application.bot.get_me()
+    logger.info(
+        "Bot berhasil nyala sebagai @%s! Tekan Ctrl+C untuk mematikan.",
+        me.username,
+    )
+
+
+def _buat_request():
+    return HTTPXRequest(
+        connect_timeout=TIMEOUT_JARINGAN,
+        read_timeout=TIMEOUT_JARINGAN,
+        write_timeout=TIMEOUT_JARINGAN,
+        pool_timeout=TIMEOUT_JARINGAN,
+    )
+
+
 def main():
     logger.info("Membangunkan bot...")
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    request = _buat_request()
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .request(request)
+        .get_updates_request(_buat_request())
+        .post_init(on_bot_ready)
+        .build()
+    )
 
     # Logger semua aktivitas user
     app.add_handler(TypeHandler(Update, log_all_activity), group=-1)
@@ -86,6 +116,8 @@ def main():
     # --- DAFTARIN FITUR OPERASIONAL JSM ---
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(lapor_conv_handler)
+    app.add_handler(smartlapor_conv_handler)
+    app.add_handler(smartlapor_akhir_conv_handler)
     app.add_handler(laka_conv_handler)
     app.add_handler(pantauan_conv_handler)
     app.add_handler(trace_conv_handler)
@@ -108,8 +140,11 @@ def main():
     # Logger error
     app.add_error_handler(error_handler)
 
-    logger.info("Bot berhasil nyala! Tekan Ctrl+C untuk mematikan.")
-    app.run_polling()
+    logger.info("Menghubungkan ke Telegram (timeout %ss)...", int(TIMEOUT_JARINGAN))
+    app.run_polling(
+        bootstrap_retries=15,
+        drop_pending_updates=True,
+    )
 
 
 if __name__ == '__main__':

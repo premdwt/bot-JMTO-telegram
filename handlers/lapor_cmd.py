@@ -1,5 +1,4 @@
 import datetime
-from zoneinfo import ZoneInfo
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -11,7 +10,7 @@ from telegram.ext import (
     filters,
 )
 
-WIB = ZoneInfo("Asia/Jakarta")
+from handlers.report_helpers import WIB
 
 MOBIL, SHIFT, PERSONIL, RC, RAMBU, KONDISI, ODDO_AWAL, ODDO_AKHIR, ODDO_KONFIRMASI, PENANGANAN, ESTAFET, PREVIEW = range(12)
 
