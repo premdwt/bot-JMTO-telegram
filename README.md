@@ -17,6 +17,7 @@
   <br><br>
 
   <a href="#-fitur-utama">Fitur</a> •
+  <a href="#-smart-lapor-ai-beta">Smart Lapor AI</a> •
   <a href="#-cara-pakai-laporan">Cara Pakai</a> •
   <a href="#-instalasi">Instalasi</a> •
   <a href="#-struktur-project">Struktur</a> •
@@ -41,6 +42,7 @@ Selain pelaporan, bot juga dilengkapi **sistem jadwal shift** petugas Unit 211/2
 | Takut kirim laporan salah | **Preview dulu** sebelum dikirim |
 | Cek jadwal harus buka Excel | `/jadwal` & `/shift` langsung di HP |
 | Oddo harus dihitung manual | Bot hitung `Oddo Akhir − Oddo Awal` otomatis |
+| Lapor akhir harus isi ulang dari awal | `/smartlapor_akhir` bawa data shift pagi otomatis |
 
 ---
 
@@ -64,6 +66,53 @@ flowchart LR
     D --> E["✅ Kirim"]
     D --> F["❌ Batal"]
 ```
+
+---
+
+## 🤖 Smart Lapor AI *(Beta)*
+
+Integrasi **[Konektika AI Cloud](https://konektikacloud.web.id/)** — ketik laporan dalam bahasa bebas, AI susun format standar `/lapor` otomatis.
+
+| Command | Fungsi |
+|---------|--------|
+| `/smartlapor` | Laporan **awal shift** dari teks bebas (AI parse) |
+| `/smartlapor_akhir` | Laporan **akhir shift** — cukup oddo akhir, penanganan & estafet |
+
+### Alur carry-over shift
+
+```mermaid
+flowchart LR
+    A["/smartlapor\n(lapor awal)"] --> B["Preview → Kirim"]
+    B --> C["💾 Sesi tersimpan\n10 jam"]
+    C --> D["/smartlapor_akhir\n(input singkat)"]
+    D --> E["Gabung data pagi\n+ input sore"]
+    E --> F["Preview → Kirim"]
+    F --> G["Sesi dihapus"]
+```
+
+**Pagi — laporan awal:**
+```
+/smartlapor
+lapor awal shift 2 jsm 211, personil YY dan UU, rc 10 rambu 2,
+semua baik kecuali rotator rusak, oddo awal 189 oddo akhir 0,
+penanganan 0, estafet nihil
+```
+
+**Sore — laporan akhir (tanpa ulang dari awal):**
+```
+/smartlapor_akhir
+oddo akhir 250, penanganan 2, estafet nihil
+```
+
+| Detail | Keterangan |
+|--------|------------|
+| Sesi shift | 1 aktif per user, expire **10 jam** |
+| Simpan sesi | Otomatis setelah laporan awal dikirim (`oddo akhir = 0`) |
+| Field update akhir | `oddo_akhir`, `penanganan`, `estafet` |
+| Rate limit AI | 15 detik antar request per user |
+| Fallback | `/lapor` manual tetap tersedia jika AI gagal |
+
+> `/lapor` manual (tombol step-by-step) **tidak diubah** — tetap bisa dipakai kapan saja.
 
 ---
 
@@ -231,8 +280,13 @@ cd bot-JMTO-telegram
 ### 2. Install dependency
 
 ```bash
-pip install "python-telegram-bot>=20.0"
+pip install -r requirements.txt
 ```
+
+Isi `requirements.txt`:
+- `python-telegram-bot>=20.0`
+- `openai>=1.0.0` *(Konektika AI)*
+- `tzdata>=2024.1` *(timezone WIB di Windows)*
 
 ### 3. Konfigurasi
 
@@ -241,6 +295,11 @@ Buat file `config.py` di root project:
 ```python
 BOT_TOKEN = "MASUKKAN_TOKEN_DARI_BOTFATHER"
 ADMIN_ID = 123456789  # Telegram User ID admin
+
+# Konektika AI (untuk /smartlapor & /smartlapor_akhir)
+KONEKTIKA_API_KEY = "knkt-..."
+KONEKTIKA_BASE_URL = "https://konektikacloud.web.id/v1"
+KONEKTIKA_MODEL = "konektika-pro"
 ```
 
 > ⚠️ `config.py` sudah masuk `.gitignore` — jangan commit token ke repository.
@@ -269,7 +328,8 @@ Output terminal yang normal:
 
 ```
 Membangunkan bot...
-Bot berhasil nyala! Tekan Ctrl+C untuk mematikan.
+Menghubungkan ke Telegram (timeout 60s)...
+Bot berhasil nyala sebagai @nama_bot! Tekan Ctrl+C untuk mematikan.
 ```
 
 ---
@@ -278,24 +338,32 @@ Bot berhasil nyala! Tekan Ctrl+C untuk mematikan.
 
 ```
 bot-JMTO-telegram/
-├── main.py                  # Entry point & registrasi handler
-├── config.py                # Token bot & Admin ID (gitignored)
-├── accounts.json            # Stok akun VIP (hbo/vision)
-├── keys_data.json           # Database license key & user VIP
+├── main.py                      # Entry point & registrasi handler
+├── config.py                    # Token bot, Admin ID & API Konektika (gitignored)
+├── requirements.txt             # Dependency Python
+├── accounts.json                # Stok akun VIP (hbo/vision)
+├── keys_data.json               # Database license key & user VIP
+├── shift_sessions.json          # Sesi shift Smart Lapor (gitignored, auto-generated)
 │
 └── handlers/
-    ├── base_cmds.py         # /start — menu utama
-    ├── report_helpers.py    # Modul bersama: tombol, preview, WIB, dll.
+    ├── base_cmds.py             # /start — menu utama
+    ├── report_helpers.py        # Modul bersama: tombol, preview, WIB, dll.
     │
-    ├── lapor_cmd.py         # /lapor — serah terima shift
-    ├── laka_cmd.py          # /laka — laporan kejadian 33
-    ├── pantauan_cmd.py      # /pantauan — pantauan kondisi
-    ├── trace_cmd.py         # /trace — penanganan kendala
-    ├── giat_cmd.py          # /giat — kegiatan rutin
+    ├── lapor_cmd.py             # /lapor — serah terima shift (manual)
+    ├── smartlapor_cmd.py        # /smartlapor — laporan awal via AI
+    ├── smartlapor_akhir_cmd.py  # /smartlapor_akhir — laporan akhir carry-over
+    ├── smartlapor_helpers.py    # Rate limit & keyboard Smart Lapor
+    ├── konektika_client.py      # Client API Konektika AI
+    ├── shift_session.py         # Penyimpanan sesi shift (expire 10 jam)
     │
-    ├── jadwal_cmd.py        # /jadwal & /shift — petugas lapangan
-    ├── jadwal_mcss_cmd.py   # /210 & /210s — jadwal MCSS
-    └── generator_cmd.py     # Sistem VIP key & akun premium
+    ├── laka_cmd.py              # /laka — laporan kejadian 33
+    ├── pantauan_cmd.py          # /pantauan — pantauan kondisi
+    ├── trace_cmd.py             # /trace — penanganan kendala
+    ├── giat_cmd.py              # /giat — kegiatan rutin
+    │
+    ├── jadwal_cmd.py            # /jadwal & /shift — petugas lapangan
+    ├── jadwal_mcss_cmd.py       # /210 & /210s — jadwal MCSS
+    └── generator_cmd.py         # Sistem VIP key & akun premium
 ```
 
 ### Arsitektur singkat
@@ -314,14 +382,21 @@ flowchart TB
 
     subgraph Data["💾 Data"]
         JSON["accounts.json / keys_data.json"]
+        SESI["shift_sessions.json"]
         JADWAL["Jadwal hardcoded per bulan"]
+    end
+
+    subgraph AI["☁️ Konektika AI"]
+        API["konektika-pro"]
     end
 
     CMD --> MAIN
     MAIN --> HANDLERS
     HANDLERS --> HELPERS
     HANDLERS --> JSON
+    HANDLERS --> SESI
     HANDLERS --> JADWAL
+    HANDLERS --> API
 ```
 
 ---
@@ -335,6 +410,9 @@ flowchart TB
 | Tidak ada info ban di `/laka` | Tap **Nihil** |
 | Akun VIP tidak masuk DM | Pastikan sudah `/start` bot secara pribadi |
 | Salah isi di tengah jalan | Ketik `/cancel` lalu mulai ulang |
+| Laporan awal via AI | `/smartlapor` → kirim → data tersimpan 10 jam |
+| Laporan akhir cepat | `/smartlapor_akhir` → cukup oddo akhir & penanganan |
+| AI gagal / internet lemot | Pakai `/lapor` manual sebagai fallback |
 
 ---
 
@@ -343,7 +421,9 @@ flowchart TB
 Fitur yang direncanakan untuk pengembangan selanjutnya:
 
 - [ ] **Template Personil** — simpan unit & nama personil favorit, pakai ulang tiap shift
-- [ ] **Integrasi AI** — input natural language, bot parse jadi format laporan
+- [x] **Integrasi AI** — `/smartlapor` & `/smartlapor_akhir` via Konektika AI *(Beta)*
+- [ ] **Smart Lapor ke laporan lain** — `/laka`, `/pantauan`, `/trace`, `/giat`
+- [ ] **Integrasi Excel** — sinkronisasi data laporan & jadwal
 - [ ] **Jadwal dinamis** — upload jadwal bulan baru tanpa edit kode
 - [ ] **Tracking stok VIP** — log distribusi akun per user
 
